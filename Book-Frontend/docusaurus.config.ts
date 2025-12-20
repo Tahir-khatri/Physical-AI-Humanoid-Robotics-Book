@@ -15,15 +15,17 @@ const config: Config = {
   },
 
   // Set the production url of your site here
-  url: 'https://your-docusaurus-site.example.com', // TODO: Update with actual URL
+  url: 'https://Tahir-khatri.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/',
+  baseUrl: '/Physical-AI-Humanoid-Robotics-Book/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'your-github-org', // TODO: Update with your GitHub org/user name.
+  organizationName: 'Tahir-khatri', // Usually your GitHub org/user name.
   projectName: 'Physical-AI-Humanoid-Robotics-Book', // Usually your repo name.
+  trailingSlash: false,
+  deploymentBranch: 'gh-pages',
 
   onBrokenLinks: 'throw',
 
@@ -44,7 +46,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/your-github-org/Physical-AI-Humanoid-Robotics-Book/tree/main/',
+            'https://github.com/Tahir-khatri/Physical-AI-Humanoid-Robotics-Book/tree/main/',
         },
         blog: false, // Disabled the blog plugin
         theme: {
@@ -74,7 +76,7 @@ const config: Config = {
           label: 'Book',
         },
         {
-          href: 'https://github.com/your-github-org/Physical-AI-Humanoid-Robotics-Book',
+          href: 'https://github.com/Tahir-khatri/Physical-AI-Humanoid-Robotics-Book',
           label: 'GitHub',
           position: 'right',
         },
@@ -110,7 +112,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/your-github-org/Physical-AI-Humanoid-Robotics-Book',
+              href: 'https://github.com/Tahir-khatri/Physical-AI-Humanoid-Robotics-Book',
             },
           ],
         },
