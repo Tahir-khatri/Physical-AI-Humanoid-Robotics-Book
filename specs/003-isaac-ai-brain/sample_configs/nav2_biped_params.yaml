@@ -1,0 +1,87 @@
+# This is a conceptual parameter file for the Nav2 Controller Server (DWB).
+# It is tuned specifically for the constraints of a bipedal robot.
+
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    controller_frequency: 10.0
+    
+    # --- Basic Velocity and Acceleration Limits ---
+    # These are the most critical parameters for bipedal stability.
+    
+    # Linear Velocities
+    min_x_velocity: 0.0       # Biped cannot walk backward in this simple model
+    max_x_velocity: 0.5       # A reasonable, stable forward walking speed in m/s
+    min_y_velocity: 0.0       # CRITICAL: Forbid sideways (strafing) motion
+    max_y_velocity: 0.0
+    
+    # Rotational Velocities
+    min_theta_velocity: -0.2  # Slow turning speed in rad/s
+    max_theta_velocity: 0.2
+    
+    # Acceleration Limits
+    acc_lim_x: 0.25           # Low acceleration to allow for center-of-mass shift
+    acc_lim_y: 0.0            # CRITICAL: Forbid sideways acceleration
+    acc_lim_theta: 0.1        # Low rotational acceleration
+    
+    # Deceleration Limits (can often be higher than acceleration)
+    decel_lim_x: -0.5
+    decel_lim_y: 0.0
+    decel_lim_theta: -0.2
+
+    # --- Holonomic vs. Non-Holonomic ---
+    # A biped is non-holonomic (cannot move in all directions at will)
+    holonomic_robot: false
+
+    # --- Speed Limits ---
+    min_speed_xy: 0.0
+    max_speed_xy: 0.5         # Should match max_x_velocity for a non-holonomic robot
+    min_speed_theta: 0.0
+
+    # --- Trajectory Generation Parameters ---
+    # How many trajectories to sample and for how long
+    sim_time: 2.0             # Simulate trajectories 2.0s into the future
+    vx_samples: 10            # Number of linear velocity samples
+    vy_samples: 1             # Only 1 sample needed since y-velocity is 0
+    vtheta_samples: 20        # Number of angular velocity samples
+
+    # --- DWB Critic (Cost Function) Plugins and their Scales ---
+    # The weights of these critics define the robot's "personality".
+    # For a biped, we want to heavily penalize paths that are not forward-facing.
+    critics:
+      - "RotateToGoal"        # Prefers to rotate toward goal before moving
+      - "Oscillation"         # Penalizes switching directions rapidly
+      - "BaseObstacle"        # Primary safety critic
+      - "GoalAlign"           # Aligns with the path to the goal
+      - "PathAlign"           # Alains with the local path
+      - "PathDist"            # Penalizes being far from the global path
+      - "GoalDist"            # Penalizes being far from the goal
+
+    # --- Critic-Specific Parameters ---
+    # Higher scale = more important
+    
+    BaseObstacle:
+      scale: 0.02             # Relatively low weight, as costmap inflation should do the heavy lifting
+      sum_scores: true
+      
+    PathAlign:
+      scale: 32.0             # HIGH WEIGHT: Strongly encourages the robot to align its body with the path direction.
+      forward_point_distance: 0.1 # Look at the path 0.1m ahead to determine alignment.
+      
+    GoalAlign:
+      scale: 24.0             # HIGH WEIGHT: Similar to PathAlign, but for the final goal pose.
+      forward_point_distance: 0.1
+      
+    RotateToGoal:
+      scale: 32.0             # HIGH WEIGHT: Prioritizes rotating to the final goal orientation when close.
+      slow_down_angle: 0.785  # Start slowing down rotational velocity when within ~45 degrees of goal orientation.
+      
+    GoalDist:
+      scale: 24.0             # Standard weight for making progress towards the goal.
+      
+    PathDist:
+      scale: 32.0             # Standard weight for staying close to the global plan.
+      
+    Oscillation:
+      oscillation_reset_dist: 0.1 # Reset oscillation flags if robot moves 10cm.
+      oscillation_reset_angle: 0.4

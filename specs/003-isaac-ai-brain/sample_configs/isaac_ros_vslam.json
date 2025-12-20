@@ -1,0 +1,75 @@
+{
+  "name": "isaac_ros_vslam_pipeline",
+  "description": "A conceptual JSON launch configuration for an Isaac ROS VSLAM pipeline. In a real project, this would be a Python launch file.",
+  "note": "This is not a directly executable file, but represents the parameters and nodes that would be configured in a ros2 launch file.",
+  
+  "container": {
+    "name": "vslam_container",
+    "package": "rclcpp_components",
+    "executable": "component_container_mt",
+    "composable_nodes": [
+      {
+        "name": "visual_slam_node",
+        "package": "isaac_ros_visual_slam",
+        "plugin": "nvidia::isaac_ros::visual_slam::VisualSlamNode",
+        "parameters": {
+          "denoise_input_images": false,
+          "rectified_images": false,
+          "enable_debug_mode": false,
+          "debug_dump_path": "/tmp/cuvslam",
+          "enable_slam_visualization": true,
+          "enable_observations_view": true,
+          "enable_landmarks_view": true,
+          "map_frame": "map",
+          "odom_frame": "odom",
+          "base_frame": "base_link",
+          "input_imu_topic": "/robot/imu",
+          "input_left_camera_info_topic": "/left/camera_info",
+          "input_right_camera_info_topic": "/right/camera_info",
+          "input_left_image_topic": "/left/image_rect",
+          "input_right_image_topic": "/right/image_rect"
+        },
+        "remappings": [
+          {
+            "from": "visual_slam/tracking/odometry",
+            "to": "/odom"
+          },
+          {
+            "from": "visual_slam/tracking/slam_path",
+            "to": "/slam_path"
+          }
+        ]
+      },
+      {
+        "name": "image_rectifier_left",
+        "package": "isaac_ros_image_proc",
+        "plugin": "nvidia::isaac_ros::image_proc::RectifyNode",
+        "parameters": {
+          "output_width": 1280,
+          "output_height": 720
+        },
+        "remappings": [
+          { "from": "image_raw", "to": "/left/image_raw" },
+          { "from": "camera_info", "to": "/left/camera_info" },
+          { "from": "image_rect", "to": "/left/image_rect" },
+          { "from": "camera_info_rect", "to": "/left/camera_info_rect" }
+        ]
+      },
+      {
+        "name": "image_rectifier_right",
+        "package": "isaac_ros_image_proc",
+        "plugin": "nvidia::isaac_ros::image_proc::RectifyNode",
+        "parameters": {
+            "output_width": 1280,
+            "output_height": 720
+        },
+        "remappings": [
+            { "from": "image_raw", "to": "/right/image_raw" },
+            { "from": "camera_info", "to": "/right/camera_info" },
+            { "from": "image_rect", "to": "/right/image_rect" },
+            { "from": "camera_info_rect", "to": "/right/camera_info_rect" }
+        ]
+      }
+    ]
+  }
+}
