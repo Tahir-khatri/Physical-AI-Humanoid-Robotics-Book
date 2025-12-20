@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkbook_frontend=globalThis.webpackChunkbook_frontend||[]).push([[240],{9866(o){o.exports=JSON.parse('{"tags":[{"label":"Overview","permalink":"/Physical-AI-Humanoid-Robotics-Book/docs/tags/overview","count":4}]}')}}]);
