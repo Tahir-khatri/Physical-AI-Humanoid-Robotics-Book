@@ -8,6 +8,9 @@ from urllib.parse import urlparse, urljoin
 import cohere # Added import
 from qdrant_client import QdrantClient, models # Added imports
 import logging # Added import
+from cohere.errors import TooManyRequestsError # Added import
+import time # Added import
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type # Added imports
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,6 +18,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # --- Constants for Chunking ---
 CHUNK_SIZE = 512  # tokens (approximate, character count is used here)
 CHUNK_OVERLAP = 50  # characters
+
+# --- Constants for Cohere Embedding ---
+COHERE_EMBEDDING_BATCH_SIZE = 10 # Number of chunks to send to Cohere per API call
 
 class VectorRecord(TypedDict):
     text: str
@@ -125,9 +131,10 @@ def chunk_text(text: str) -> List[str]:
 
     return [chunk for chunk in final_chunks if chunk] # Filter out empty chunks
 
+@retry(wait=wait_exponential(multiplier=1, min=4, max=60), stop=stop_after_attempt(7), retry=retry_if_exception_type(TooManyRequestsError))
 def get_cohere_embeddings(chunks: List[str], cohere_api_key: str) -> List[List[float]]:
     """
-    Generates Cohere embeddings for a list of text chunks.
+    Generates Cohere embeddings for a list of text chunks with retry logic for TooManyRequestsError.
 
     Args:
         chunks (List[str]): A list of text chunks to embed.
@@ -144,8 +151,8 @@ def get_cohere_embeddings(chunks: List[str], cohere_api_key: str) -> List[List[f
             input_type="search_document"
         )
         return response.embeddings
-    except cohere.CohereError as e:
-        logging.error(f"Error generating Cohere embeddings: {e}")
+    except TooManyRequestsError as e: # Changed CohereError to TooManyRequestsError
+        logging.error(f"Error generating Cohere embeddings: {e}. Please reduce batch size or wait.")
         return []
     except Exception as e:
         logging.error(f"An unexpected error occurred during Cohere embedding: {e}")
@@ -213,8 +220,7 @@ def run_pipeline() -> None:
 
     all_records: List[VectorRecord] = []
     all_chunks: List[str] = []
-    current_chunk_index = 0
-
+    
     for url in urls:
         try:
             logging.info(f"Processing URL: {url}")
@@ -226,7 +232,7 @@ def run_pipeline() -> None:
             chunks = chunk_text(content)
             logging.info(f"  Split into {len(chunks)} chunks.")
 
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
                 # Assuming section_title can be extracted or is a placeholder for now
                 # A more sophisticated parser would get actual section titles
                 section_title = "Document Content" # Placeholder
@@ -237,11 +243,10 @@ def run_pipeline() -> None:
                         text=chunk,
                         url=url,
                         section_title=section_title,
-                        chunk_index=current_chunk_index,
+                        chunk_index=i, # Chunk index relative to current page
                         processed_at=datetime.now().isoformat()
                     )
                 )
-                current_chunk_index += 1
         except requests.exceptions.RequestException as e:
             logging.error(f"Error fetching or processing URL {url}: {e}")
         except Exception as e:
@@ -252,11 +257,47 @@ def run_pipeline() -> None:
         logging.warning("No chunks to process. Exiting.")
         return
 
-    embeddings = get_cohere_embeddings(all_chunks, cohere_api_key)
-    logging.info(f"Generated {len(embeddings)} embeddings.")
+    # --- Manual batching for Cohere embeddings with sleep ---
+    final_embeddings: List[List[float]] = []
+    
+    for i in range(0, len(all_chunks), COHERE_EMBEDDING_BATCH_SIZE):
+        batch_chunks = all_chunks[i:i + COHERE_EMBEDDING_BATCH_SIZE]
+        logging.info(f"Generating embeddings for batch {i // COHERE_EMBEDDING_BATCH_SIZE + 1} of {len(batch_chunks)} chunks...")
+        
+        try:
+            batch_embeddings = get_cohere_embeddings(batch_chunks, cohere_api_key)
+            final_embeddings.extend(batch_embeddings)
+        except TooManyRequestsError:
+            logging.error("Cohere rate limit hit during batch embedding. Skipping remaining batches.")
+            break # Stop processing further batches if rate limit persists
+        
+        # Introduce a delay to respect rate limits
+        if (i + COHERE_EMBEDDING_BATCH_SIZE) < len(all_chunks): # Only sleep if there are more batches
+            time.sleep(3) # Sleep for 3 seconds between batches
 
-    upsert_to_qdrant(all_records, config, embeddings)
-    logging.info(f"Successfully upserted {len(all_records)} records to Qdrant collection '{config['QDRANT_COLLECTION_NAME']}'.")
+    logging.info(f"Generated {len(final_embeddings)} total embeddings.")
+
+    if not final_embeddings: # Re-check if embeddings were generated after batching
+        logging.warning("No embeddings generated after all batches, skipping upsert to Qdrant.")
+        return
+
+    # Assign correct embeddings to records before upsert
+    # This assumes all_records and final_embeddings are in the same order and correspond 1:1
+    # which they should be with the current batching logic
+    records_to_upsert = []
+    for i, record in enumerate(all_records):
+        records_to_upsert.append(
+            models.PointStruct(
+                id=i,
+                vector=final_embeddings[i],
+                payload=record,
+            )
+        )
+
+    # Use the existing upsert_to_qdrant function with the now batched embeddings
+    upsert_to_qdrant(records_to_upsert, config, final_embeddings) # Pass all_records and final_embeddings
+
+    logging.info(f"Successfully upserted {len(records_to_upsert)} records to Qdrant collection '{config['QDRANT_COLLECTION_NAME']}'.")
 
     logging.info("Pipeline finished.")
 
