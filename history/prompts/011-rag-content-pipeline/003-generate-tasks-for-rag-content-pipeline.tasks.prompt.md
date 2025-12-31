@@ -41,7 +41,7 @@ Successfully generated the `tasks.md` file, breaking down the implementation pla
 
 ## Evaluation notes (flywheel)
 
-- Failure modes observed: The prerequisite check script initially failed because it was run on the `main` branch instead of the feature branch.
+- Failure modes observed: The prerequisite check script initially failed because it was run on the `main` branch instead of the feature branch. The `tasks.md` file was also missing and had to be recreated.
 - Graders run and results (PASS/FAIL): PASS
 - Prompt variant (if applicable): null
 - Next experiment (smallest change to try): n/a
