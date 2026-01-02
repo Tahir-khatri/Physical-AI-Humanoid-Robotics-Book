@@ -6,33 +6,33 @@ This document breaks down the implementation plan for the RAG Agent Backend into
 
 ## Phase 1: Project Setup
 
-- [ ] T001 Create the `backend/agent/` directory.
-- [ ] T002 Create the initial empty files: `backend/agent/main.py`, `backend/agent/agent.py`, and `backend/agent/database.py`.
-- [ ] T003 [P] Add the new dependencies (`fastapi`, `uvicorn[standard]`, `openai`, `psycopg2-binary`, `SQLAlchemy`) to `backend/pyproject.toml` by running `uv pip install`.
-- [ ] T004 [P] In `backend/.env.example`, add placeholders for `OPENAI_API_KEY` and `NEON_DATABASE_URL`.
+- [x] T001 Create the `backend/agent/` directory.
+- [x] T002 Create the initial empty files: `backend/agent/main.py`, `backend/agent/agent.py`, and `backend/agent/database.py`.
+- [x] T003 [P] Add the new dependencies (`fastapi`, `uvicorn[standard]`, `openai`, `psycopg2-binary`, `SQLAlchemy`) to `backend/pyproject.toml` by running `uv pip install`.
+- [x] T004 [P] In `backend/.env.example`, add placeholders for `OPENAI_API_KEY` and `NEON_DATABASE_URL`.
 
 ## Phase 2: Foundational Code (Database & Core Types)
 
-- [ ] T005 In `backend/agent/database.py`, define the SQLAlchemy table models for `chat_sessions` and `chat_messages` as specified in `data-model.md`.
-- [ ] T006 In `backend/agent/database.py`, implement a function `init_db()` to connect to the Postgres database and create the tables if they don't exist.
-- [ ] T007 In `backend/agent/main.py`, define the Pydantic models for API requests and responses: `ChatRequest`, `ChatResponse`, and `ContextualChatRequest`.
-- [ ] T008 [P] In `backend/agent/main.py`, create the basic FastAPI app instance.
+- [x] T005 In `backend/agent/database.py`, define the SQLAlchemy table models for `chat_sessions` and `chat_messages` as specified in `data-model.md`.
+- [x] T006 In `backend/agent/database.py`, implement a function `init_db()` to connect to the Postgres database and create the tables if they don't exist.
+- [x] T007 In `backend/agent/main.py`, define the Pydantic models for API requests and responses: `ChatRequest`, `ChatResponse`, and `ContextualChatRequest`.
+- [x] T008 [P] In `backend/agent/main.py`, create the basic FastAPI app instance.
 
 ## Phase 3: User Story 1 - Ask a Question (MVP)
 
 **Goal**: A user can send a question and get a response without conversation history.
 
-- [ ] T009 [US1] In `backend/agent/agent.py`, implement the `QdrantRetriever` tool function. This function will take a query string, embed it using Cohere, search Qdrant, and return the formatted context.
-- [ ] T010 [US1] In `backend/agent/agent.py`, implement the agent execution logic `run_agent_turn()`. This initial version will initialize the OpenAI Assistant with the `QdrantRetriever` tool and run it with the user's question. It will not handle chat history yet.
-- [ ] T011 [US1] In `backend/agent/main.py`, implement the `POST /chat` endpoint. This version will receive a `ChatRequest`, call `run_agent_turn()`, and return the response. It will ignore the `session_id` for now.
+- [x] T009 [US1] In `backend/agent/agent.py`, implement the `QdrantRetriever` tool function. This function will take a query string, embed it using Cohere, search Qdrant, and return the formatted context.
+- [x] T010 [US1] In `backend/agent/agent.py`, implement the agent execution logic `run_agent_turn()`. This initial version will initialize the OpenAI Assistant with the `QdrantRetriever` tool and run it with the user's question. It will not handle chat history yet.
+- [x] T011 [US1] In `backend/agent/main.py`, implement the `POST /chat` endpoint. This version will receive a `ChatRequest`, call `run_agent_turn()`, and return the response. It will ignore the `session_id` for now.
 
 ## Phase 4: User Story 2 - Continue a Conversation
 
 **Goal**: The agent can remember previous turns in the conversation.
 
-- [ ] T012 [US2] In `backend/agent/database.py`, implement the `get_or_create_session(session_id: str)` function to find an existing session or create a new one.
-- [ ] T013 [US2] In `backend/agent/database.py`, implement `get_chat_history(session_id: str)` to retrieve all messages for a given session.
-- [ ] T014 [US2] In `backend/agent/database.py`, implement `add_message_to_history(session_id: str, role: str, content: str)`.
+- [x] T012 [US2] In `backend/agent/database.py`, implement the `get_or_create_session(session_id: str)` function to find an existing session or create a new one.
+- [x] T013 [US2] In `backend/agent/database.py`, implement `get_chat_history(session_id: str)` to retrieve all messages for a given session.
+- [x] T014 [US2] In `backend/agent/database.py`, implement `add_message_to_history(session_id: str, role: str, content: str)`.
 - [ ] T015 [US2] In `backend/agent/agent.py`, modify `run_agent_turn()` to accept a list of previous messages (chat history) and pass it to the OpenAI Assistant.
 - [ ] T016 [US2] In `backend/agent/main.py`, enhance the `/chat` endpoint to handle the `session_id`. It should now call the database functions to get history before running the agent and save the new messages after.
 
@@ -41,14 +41,14 @@ This document breaks down the implementation plan for the RAG Agent Backend into
 **Goal**: The agent can answer questions about a specific piece of text.
 
 - [ ] T017 [US3] In `backend/agent/main.py`, implement the `POST /chat/contextual` endpoint.
-- [ ] T018 [US3] In `backend/agent/agent.py`, modify `run_agent_turn()` to accept an optional `context` string. If provided, this context should be prepended to the system prompt or user message to guide the agent's response.
+- [x] T018 [US3] In `backend/agent/agent.py`, modify `run_agent_turn()` to accept an optional `context` string. If provided, this context should be prepended to the system prompt or user message to guide the agent's response.
 
 ## Phase 6: Polish & Orchestration
 
-- [ ] T019 [P] Add comprehensive logging for queries, responses, and errors to all modules.
-- [ ] T020 [P] Add detailed docstrings and complete type hints to all functions.
-- [ ] T021 In `backend/agent/main.py`, add a root `/` GET endpoint for health checks.
-- [ ] T022 In `backend/agent/main.py`, add the `uvicorn.run()` call within an `if __name__ == "__main__":` block to make the server runnable directly.
+- [x] T019 [P] Add comprehensive logging for queries, responses, and errors to all modules.
+- [x] T020 [P] Add detailed docstrings and complete type hints to all functions.
+- [x] T021 In `backend/agent/main.py`, add a root `/` GET endpoint for health checks.
+- [x] T022 In `backend/agent/main.py`, add the `uvicorn.run()` call within an `if __name__ == "__main__":` block to make the server runnable directly.
 
 ## Dependencies
 
