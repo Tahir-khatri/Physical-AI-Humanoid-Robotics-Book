@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import os
-from typing import TypedDict, List
+from typing import TypedDict, List, Tuple
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
@@ -62,31 +62,43 @@ def get_sitemap_urls(site_url: str) -> List[str]:
     urls = [loc.text for loc in soup.find_all('loc')]
     return urls
 
-def fetch_and_extract_content(url: str) -> str:
+def fetch_and_extract_content(url: str) -> Tuple[str, List[Tuple[str, int]]]:
     """
     Fetches the content of a given URL and extracts the main text from the <main> HTML tag.
+    Also identifies headings and their positions within the main content.
 
     Args:
         url (str): The URL of the page to fetch and extract content from.
 
     Returns:
-        str: The extracted main text content, or an empty string if not found.
+        Tuple[str, List[Tuple[str, int]]]: A tuple containing the extracted main text content
+        and a list of (heading_text, start_character_offset) tuples. Returns empty string
+        and empty list if main content is not found.
     """
     response = requests.get(url)
     response.raise_for_status()
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    # Extract title for section_title fallback
-    title_tag = soup.find('title')
-    page_title = title_tag.get_text(strip=True) if title_tag else "No Title"
+    main_content_tag = soup.find('main')
+    if not main_content_tag:
+        return "", []
 
-    main_content = soup.find('main')
-    if main_content:
-        # Remove unwanted elements like nav, footer, header, script, style, aside, etc.
-        for unwanted in main_content(['nav', 'footer', 'header', 'script', 'style', 'aside', '.docitem-container__pagination']):
-            unwanted.decompose()
-        return main_content.get_text(separator='\n', strip=True)
-    return "" # Return empty string if main content not found or extracted text is empty
+    # Get a copy of the main_content_tag to extract headings before decomposing unwanted elements
+    headings_info = []
+    text_so_far = ""
+    for element in main_content_tag.children:
+        if element.name and element.name.startswith('h') and len(element.name) == 2 and element.name[1].isdigit():
+            heading_text = element.get_text(strip=True)
+            if heading_text:
+                headings_info.append((heading_text, len(text_so_far)))
+        text_so_far += element.get_text(separator='\n', strip=True) + '\n' # Rough text approximation to find heading offsets
+
+    # Remove unwanted elements from the original main_content_tag
+    for unwanted in main_content_tag(['nav', 'footer', 'header', 'script', 'style', 'aside', '.docitem-container__pagination']):
+        unwanted.decompose()
+        
+    extracted_text = main_content_tag.get_text(separator='\n', strip=True)
+    return extracted_text, headings_info
 
 def chunk_text(text: str) -> List[str]:
     """
@@ -224,7 +236,8 @@ def run_pipeline() -> None:
     for url in urls:
         try:
             logging.info(f"Processing URL: {url}")
-            content = fetch_and_extract_content(url)
+            # Modified to receive headings_info
+            content, headings_info = fetch_and_extract_content(url)
             if not content:
                 logging.warning(f"  No main content found for {url}, skipping.")
                 continue
@@ -232,10 +245,21 @@ def run_pipeline() -> None:
             chunks = chunk_text(content)
             logging.info(f"  Split into {len(chunks)} chunks.")
 
+            current_text_offset = 0
             for i, chunk in enumerate(chunks):
-                # Assuming section_title can be extracted or is a placeholder for now
-                # A more sophisticated parser would get actual section titles
-                section_title = "Document Content" # Placeholder
+                # Calculate the start offset of the current chunk in the original content
+                chunk_start_offset = content.find(chunk, current_text_offset)
+                if chunk_start_offset == -1: # Should not happen if chunk is part of content
+                    chunk_start_offset = current_text_offset
+                current_text_offset = chunk_start_offset + len(chunk)
+
+                # Determine the nearest preceding section title
+                section_title = "Document Content" # Default if no heading found
+                for heading_text, heading_offset in headings_info:
+                    if heading_offset <= chunk_start_offset:
+                        section_title = heading_text
+                    else:
+                        break # Headings are sorted by offset, so we found the last preceding one
                 
                 all_chunks.append(chunk)
                 all_records.append(
